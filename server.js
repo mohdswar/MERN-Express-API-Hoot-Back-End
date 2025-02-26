@@ -14,6 +14,9 @@ const verifyToken = require('./middleware/verify-token');
 const testJWTRouter = require('./controllers/test-jwt');
 const usersRouter = require('./controllers/users');
 const profilesRouter = require('./controllers/profiles');
+// server.js
+
+const hootsRouter = require('./controllers/hoots.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,7 +28,9 @@ app.use(express.json());
 // Routes
 app.use('/test-jwt', testJWTRouter); // REMOVE FOR TEST ONLY
 app.use('/users', usersRouter);
+// server.js
 
+app.use('/hoots', hootsRouter);
 // Protected Routes
 app.use(verifyToken)
 app.use('/profiles', profilesRouter);

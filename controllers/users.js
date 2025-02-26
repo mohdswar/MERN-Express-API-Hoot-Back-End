@@ -15,10 +15,10 @@ router.post('/signup', async (req, res) => {
     const existingUser = await User.findOne({ username });
 
     if (existingUser) {
-      return res.status(400).json({ error: 'Something went wrongm, try again.' });
+      return res.status(400).json({ error: 'User already exists, try again.' });
     }
 
-    const hashedPassword = bcrypt.hashSync(password, parseInt(process.env.SALT_ROUNDS));
+    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.SALT_ROUNDS));
 
     const user = await User.create({ username, hashedPassword });
 
@@ -32,7 +32,7 @@ router.post('/signup', async (req, res) => {
 
     return res.status(201).json({ user, token });
   } catch (error) {
-    res.status(400).json({ error: 'Something wen wrong, try again.' });
+    res.status(400).json({ error: 'Something went wrong, try again.' });
   }
 });
 
@@ -46,10 +46,10 @@ router.post('/signin', async (req, res) => {
       return res.status(400).json({ error: 'Invalid Credentials' });
     }
 
-    const isValidPassword = bcrypt.compareSync(password, existingUser.hashedPassword);
+    const isValidPassword = await bcrypt.compare(password, existingUser.hashedPassword);
 
     if (!isValidPassword) {
-      throw Error('Invalid Credentials');
+      return res.status(400).json({ error: 'Invalid Credentials' });
     }
 
     const token = jwt.sign(
