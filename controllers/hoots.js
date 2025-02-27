@@ -3,48 +3,53 @@
 const express = require('express');
 const verifyToken = require('../middleware/verify-token.js');
 const Hoot = require('../models/hoot.js');
+
 const router = express.Router();
+
+// ========== Public Routes ===========
+
+router.use(verifyToken);
 
 router.get('/', async (req, res) => {
     try {
-        const hoots = await Hoot.find({})
-            .populate('author')
-            .sort({ createdAt: 'desc' });
+        const hoots = await Hoot.find({}).populate('author').sort({ createdAt: 'desc' });
         res.status(200).json(hoots);
     } catch (error) {
         res.status(500).json(error);
     }
 });
 
-
-// controllers/hoots.js
-
 router.get('/:hootId', async (req, res) => {
     try {
-        const hoot = await Hoot.findById(req.params.hootId).populate('author');
+        const hoot = await Hoot.findById(req.params.hootId).populate(['author', 'comments.author']);
+
         res.status(200).json(hoot);
     } catch (error) {
         res.status(500).json(error);
     }
 });
 
-
-// any thing dwn here need a login
-router.use(verifyToken);
+// ========= Protected Routes =========
 
 router.post('/', async (req, res) => {
     try {
+        // Get the data from the form submitted,
+        // but add the user as the author, since that is not an option on the form
         req.body.author = req.user._id;
+
+        // Create the new hoot in the database
         const hoot = await Hoot.create(req.body);
+
+        // instead of using populate to call the databse, just attach
+        // the user object from the parsed token
         hoot._doc.author = req.user;
+
         res.status(201).json(hoot);
     } catch (error) {
         console.log(error);
         res.status(500).json(error);
     }
 });
-
-// controllers/hoots.js
 
 router.put('/:hootId', async (req, res) => {
     try {
@@ -57,11 +62,7 @@ router.put('/:hootId', async (req, res) => {
         }
 
         // Update hoot:
-        const updatedHoot = await Hoot.findByIdAndUpdate(
-            req.params.hootId,
-            req.body,
-            { new: true }
-        );
+        const updatedHoot = await Hoot.findByIdAndUpdate(req.params.hootId, req.body, { new: true });
 
         // Append req.user to the author property:
         updatedHoot._doc.author = req.user;
@@ -72,8 +73,6 @@ router.put('/:hootId', async (req, res) => {
         res.status(500).json(error);
     }
 });
-
-// controllers/hoots.js
 
 router.delete('/:hootId', async (req, res) => {
     try {
@@ -86,17 +85,27 @@ router.delete('/:hootId', async (req, res) => {
         const deletedHoot = await Hoot.findByIdAndDelete(req.params.hootId);
         res.status(200).json(deletedHoot);
     } catch (error) {
+        console.log(error);
         res.status(500).json(error);
     }
 });
 
-// controllers/hoots.js
+// Comments
 
 router.post('/:hootId/comments', async (req, res) => {
     try {
+        console.log(req.user._id);
+        console.log(req.user);
+        // the person signed in is the author of this comment
         req.body.author = req.user._id;
+
+        // find the hoot that this comment will belong to
         const hoot = await Hoot.findById(req.params.hootId);
+
+        // Add the new comment to the comments array on the hoot
         hoot.comments.push(req.body);
+
+        // save the base hoot model since comments is embedded
         await hoot.save();
 
         // Find the newly created comment:
@@ -108,6 +117,29 @@ router.post('/:hootId/comments', async (req, res) => {
         res.status(201).json(newComment);
     } catch (error) {
         res.status(500).json(error);
+    }
+});
+
+router.put('/:hootId/comments/:commentId', async (req, res) => {
+    try {
+        const hoot = await Hoot.findById(req.params.hootId);
+        const comment = hoot.comments.id(req.params.commentId);
+        comment.text = req.body.text;
+        await hoot.save();
+        res.status(200).json({ message: 'Ok' });
+    } catch (err) {
+        res.status(500).json(err);
+    }
+});
+
+router.delete('/:hootId/comments/:commentId', async (req, res) => {
+    try {
+        const hoot = await Hoot.findById(req.params.hootId);
+        hoot.comments.remove({ _id: req.params.commentId });
+        await hoot.save();
+        res.status(200).json({ message: 'Ok' });
+    } catch (err) {
+        res.status(500).json(err);
     }
 });
 
